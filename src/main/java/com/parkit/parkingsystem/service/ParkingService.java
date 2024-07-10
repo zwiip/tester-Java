@@ -105,21 +105,17 @@ public class ParkingService {
     public void processExitingVehicle() {
         try{
             String vehicleRegNumber = getVehichleRegNumber();
-            Ticket ticket = ticketDAO.getTicket(vehicleRegNumber);
+            Ticket ticket = ticketDAO.getTicket( vehicleRegNumber );
             Date outTime = new Date();
-            ticket.setOutTime(outTime);
+            ticket.setOutTime( outTime );
 
-            if ( ticketDAO.getNumberTicket( vehicleRegNumber ) > 0 ) {
-                ticket.setDiscount( true );
-            } else {
-                ticket.setDiscount( false );
-            }
+            setDiscountForRecurringUser(ticket, vehicleRegNumber);
 
-            fareCalculatorService.calculateFare(ticket);
-            if(ticketDAO.updateTicket(ticket)) {
+            fareCalculatorService.calculateFare( ticket );
+            if(ticketDAO.updateTicket( ticket )) {
                 ParkingSpot parkingSpot = ticket.getParkingSpot();
-                parkingSpot.setAvailable(true);
-                parkingSpotDAO.updateParking(parkingSpot);
+                parkingSpot.setAvailable( true );
+                parkingSpotDAO.updateParking( parkingSpot );
                 System.out.println("Please pay the parking fare:" + ticket.getPrice());
                 System.out.println("Recorded out-time for vehicle number:" + ticket.getVehicleRegNumber() + " is:" + outTime);
             }else{
@@ -127,6 +123,14 @@ public class ParkingService {
             }
         }catch(Exception e){
             logger.error("Unable to process exiting vehicle",e);
+        }
+    }
+
+    public void setDiscountForRecurringUser(Ticket ticket, String vehicleRegNumber) {
+        if ( ticketDAO.getNumberTicket( vehicleRegNumber ) > 0 ) {
+            ticket.setDiscount( true );
+        } else {
+            ticket.setDiscount( false );
         }
     }
 }

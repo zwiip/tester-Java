@@ -73,8 +73,11 @@ public class ParkingDataBaseIT {
         assertEquals( 1, parkingSpot.getId() );
     }
 
+    /**
+     * the fare generated and out time are populated correctly in the database
+     */
     @Test
-    public void testParkingLotExit() throws Exception {
+    public void testParkingLotExit() {
         // GIVEN
         testParkingACar();
         ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
@@ -88,10 +91,8 @@ public class ParkingDataBaseIT {
 
         // THEN
         assertNotNull(ticket);
-        Ticket updatedTicket = ticketDAO.getTicket("ABCDEF");
-        assertNotNull(updatedTicket.getOutTime());
-        assertNotEquals(0, updatedTicket.getPrice());
-        //TODO: check that the fare generated and out time are populated correctly in the database
+        assertNotNull(ticket.getOutTime());
+        assertNotEquals(0, ticket.getPrice());
     }
 
 }

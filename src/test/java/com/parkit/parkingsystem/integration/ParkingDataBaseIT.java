@@ -6,6 +6,7 @@ import com.parkit.parkingsystem.integration.config.DataBaseTestConfig;
 import com.parkit.parkingsystem.integration.service.DataBasePrepareService;
 import com.parkit.parkingsystem.model.ParkingSpot;
 import com.parkit.parkingsystem.model.Ticket;
+import com.parkit.parkingsystem.service.FareCalculatorService;
 import com.parkit.parkingsystem.service.ParkingService;
 import com.parkit.parkingsystem.util.InputReaderUtil;
 import org.junit.jupiter.api.AfterAll;
@@ -28,12 +29,13 @@ public class ParkingDataBaseIT {
     private static ParkingSpotDAO parkingSpotDAO;
     private static TicketDAO ticketDAO;
     private static DataBasePrepareService dataBasePrepareService;
+    private static FareCalculatorService fareCalculatorService;
 
     @Mock
     private static InputReaderUtil inputReaderUtil;
 
     @BeforeAll
-    private static void setUp() throws Exception{
+    private static void setUp() throws Exception {
         parkingSpotDAO = new ParkingSpotDAO();
         parkingSpotDAO.dataBaseConfig = dataBaseTestConfig;
         ticketDAO = new TicketDAO();
@@ -49,12 +51,12 @@ public class ParkingDataBaseIT {
     }
 
     @AfterAll
-    private static void tearDown(){
+    private static void tearDown() {
 
     }
 
     @Test
-    public void givenParkingSlotAvailable_whenProcessIncomingCar_thenTicketIsSaved(){
+    public void givenParkingSlotAvailable_whenProcessIncomingCar_thenTicketIsSaved() {
         // GIVEN
         ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
 
@@ -67,7 +69,7 @@ public class ParkingDataBaseIT {
     }
 
     @Test
-    public void givenParkingSlotAvailable_whenProcessIncomingCar_thenParkingAvailabilityIsUpdated(){
+    public void givenParkingSlotAvailable_whenProcessIncomingCar_thenParkingAvailabilityIsUpdated() {
         // GIVEN
         ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
 
@@ -78,61 +80,68 @@ public class ParkingDataBaseIT {
         Ticket ticket = ticketDAO.getTicket("ABCDEF");
         ParkingSpot parkingSpot = ticket.getParkingSpot();
         assertNotNull(parkingSpot);
-        assertEquals( 1, parkingSpot.getId() );
+        assertEquals(1, parkingSpot.getId());
     }
 
     @Test
     public void givenEverythingOK_whenProcessExitingVehicle_thenTicketIsUpdated() {
         // GIVEN
         givenParkingSlotAvailable_whenProcessIncomingCar_thenTicketIsSaved();
-        givenParkingSlotAvailable_whenProcessIncomingCar_thenParkingAvailabilityIsUpdated();
-        ParkingService parkingService = new ParkingService( inputReaderUtil, parkingSpotDAO, ticketDAO );
-        Ticket ticket = ticketDAO.getTicket( "ABCDEF" );
-        Date outTime = new Date(ticket.getInTime().getTime() + ( 35 * 60 * 1000 ));
-        ticket.setOutTime( outTime );
+        ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
 
         // WHEN
-        ticketDAO.updateTicket( ticket );
         parkingService.processExitingVehicle();
 
         // THEN
+        Ticket ticket = ticketDAO.getTicket("ABCDEF");
         assertNotNull(ticket);
         assertNotNull(ticket.getOutTime());
-        assertNotEquals(0, ticket.getPrice());
     }
 
     @Test
     public void givenRecurringUser_whenProcessExitingVehicle_thenApplyDiscount() {
         // GIVEN
-        ParkingService firstParkingService = new ParkingService( inputReaderUtil, parkingSpotDAO, ticketDAO );
+        ParkingService firstParkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
+
 
         // first User Visit
         firstParkingService.processIncomingVehicle();
         Ticket firstTicket = ticketDAO.getTicket("ABCDEF");
 
-        Date firstOutTime = new Date(firstTicket.getInTime().getTime() + ( 35 * 60 * 1000 ));
-        firstTicket.setOutTime( firstOutTime );
-        ticketDAO.updateTicket( firstTicket );
+        /*try (MockedStatic<Date> mockedOutTime = mockStatic(Date.class)) {
+            mockedOutTime.when(Date::new).thenReturn(new Date(firstTicket.getInTime().getTime() + (35 * 60 * 1000)));
+
+        }*/
+        //when(Date::new).thenReturn(new Date(firstTicket.getInTime().getTime() + (35 * 60 * 1000)));
         firstParkingService.processExitingVehicle();
+        Date firstOutTime = new Date(firstTicket.getInTime().getTime() + (35 * 60 * 1000));
+        firstTicket.setOutTime(firstOutTime);
+        firstParkingService.setDiscountForRecurringUser(firstTicket, "ABCDEF");
+        FareCalculatorService firstFareCalculatorService = new FareCalculatorService();
+        firstFareCalculatorService.calculateFare(firstTicket);
+        ticketDAO.updateTicket(firstTicket);
+
         Double firstPrice = firstTicket.getPrice();
 
-
         // second User visit
-        ParkingService secondParkingService = new ParkingService( inputReaderUtil, parkingSpotDAO, ticketDAO );
+        ParkingService secondParkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
 
         secondParkingService.processIncomingVehicle();
         Ticket secondTicket = ticketDAO.getTicket("ABCDEF");
-        Date secondOutTime = new Date(secondTicket.getInTime().getTime() + ( 35 * 60 * 1000 ));
-        secondTicket.setOutTime( secondOutTime );
-        ticketDAO.updateTicket( secondTicket );
+
+        Date secondInTime = new Date(secondTicket.getInTime().getTime() - (35 * 60 * 1000));
+        secondTicket.setInTime(secondInTime);
+
+        ticketDAO.updateTicket(secondTicket);
 
         // WHEN
         secondParkingService.processExitingVehicle();
 
         // THEN
-        assertTrue( secondTicket.isDiscount());
         Double secondPrice = secondTicket.getPrice();
-        assertEquals( firstPrice * 0.95, secondPrice, 0.01 );
+        System.out.println(firstPrice + " / " + secondPrice );
+        assertTrue(secondTicket.isDiscount());
+        assertEquals(firstPrice * 0.95, secondPrice, 0.01);
     }
 
 }

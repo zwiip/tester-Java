@@ -34,9 +34,9 @@ public class TicketDAO {
             return ps.execute();
         }catch (Exception ex){
             logger.error("Error saving ticket",ex);
+            return false;
         }finally {
             dataBaseConfig.closeConnection(con);
-            return false;
         }
     }
 
@@ -65,8 +65,8 @@ public class TicketDAO {
             logger.error("Error fetching ticket",ex);
         }finally {
             dataBaseConfig.closeConnection(con);
-            return ticket;
         }
+        return ticket;
     }
 
     public boolean updateTicket(Ticket ticket) {
@@ -81,10 +81,11 @@ public class TicketDAO {
             return true;
         }catch (Exception ex){
             logger.error("Error updating ticket info",ex);
+            return false;
         }finally {
             dataBaseConfig.closeConnection(con);
         }
-        return false;
+
     }
 
     public int getNumberTicket(String vehicleRegNumber) {

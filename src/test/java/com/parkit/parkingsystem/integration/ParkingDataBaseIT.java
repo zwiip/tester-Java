@@ -16,9 +16,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 import java.util.Date;
 
@@ -54,11 +53,8 @@ public class ParkingDataBaseIT {
 
     }
 
-    /**
-     * check that a ticket is actualy saved in DB and Parking table is updated with availability
-     */
     @Test
-    public void testParkingACar(){
+    public void givenParkingSlotAvailable_whenProcessIncomingCar_thenTicketIsSaved(){
         // GIVEN
         ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
 
@@ -68,21 +64,31 @@ public class ParkingDataBaseIT {
         // THEN
         Ticket ticket = ticketDAO.getTicket("ABCDEF");
         assertNotNull(ticket);
+    }
+
+    @Test
+    public void givenParkingSlotAvailable_whenProcessIncomingCar_thenParkingAvailabilityIsUpdated(){
+        // GIVEN
+        ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
+
+        // WHEN
+        parkingService.processIncomingVehicle();
+
+        // THEN
+        Ticket ticket = ticketDAO.getTicket("ABCDEF");
         ParkingSpot parkingSpot = ticket.getParkingSpot();
         assertNotNull(parkingSpot);
         assertEquals( 1, parkingSpot.getId() );
     }
 
-    /**
-     * the fare generated and out time are populated correctly in the database
-     */
     @Test
-    public void testParkingLotExit() {
+    public void givenEverythingOK_whenProcessExitingVehicle_thenTicketIsUpdated() {
         // GIVEN
-        testParkingACar();
-        ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
+        givenParkingSlotAvailable_whenProcessIncomingCar_thenTicketIsSaved();
+        givenParkingSlotAvailable_whenProcessIncomingCar_thenParkingAvailabilityIsUpdated();
+        ParkingService parkingService = new ParkingService( inputReaderUtil, parkingSpotDAO, ticketDAO );
         Ticket ticket = ticketDAO.getTicket( "ABCDEF" );
-        Date outTime = new Date(ticket.getInTime().getTime() + (35 * 60 * 1000));
+        Date outTime = new Date(ticket.getInTime().getTime() + ( 35 * 60 * 1000 ));
         ticket.setOutTime( outTime );
 
         // WHEN
@@ -93,6 +99,40 @@ public class ParkingDataBaseIT {
         assertNotNull(ticket);
         assertNotNull(ticket.getOutTime());
         assertNotEquals(0, ticket.getPrice());
+    }
+
+    @Test
+    public void givenRecurringUser_whenProcessExitingVehicle_thenApplyDiscount() {
+        // GIVEN
+        ParkingService firstParkingService = new ParkingService( inputReaderUtil, parkingSpotDAO, ticketDAO );
+
+        // first User Visit
+        firstParkingService.processIncomingVehicle();
+        Ticket firstTicket = ticketDAO.getTicket("ABCDEF");
+
+        Date firstOutTime = new Date(firstTicket.getInTime().getTime() + ( 35 * 60 * 1000 ));
+        firstTicket.setOutTime( firstOutTime );
+        ticketDAO.updateTicket( firstTicket );
+        firstParkingService.processExitingVehicle();
+        Double firstPrice = firstTicket.getPrice();
+
+
+        // second User visit
+        ParkingService secondParkingService = new ParkingService( inputReaderUtil, parkingSpotDAO, ticketDAO );
+
+        secondParkingService.processIncomingVehicle();
+        Ticket secondTicket = ticketDAO.getTicket("ABCDEF");
+        Date secondOutTime = new Date(secondTicket.getInTime().getTime() + ( 35 * 60 * 1000 ));
+        secondTicket.setOutTime( secondOutTime );
+        ticketDAO.updateTicket( secondTicket );
+
+        // WHEN
+        secondParkingService.processExitingVehicle();
+
+        // THEN
+        assertTrue( secondTicket.isDiscount());
+        Double secondPrice = secondTicket.getPrice();
+        assertEquals( firstPrice * 0.95, secondPrice, 0.01 );
     }
 
 }

@@ -47,3 +47,9 @@ The app has unit tests and integration tests written. More of these need to be a
 To run the tests from maven, go to the folder that contains the pom.xml file and execute the below command.
 
 `mvn test`
+
+### Reporting
+several tools are used for reporting :
+- Jacoco, for test coverage (mvn verify)
+- Surefire, report on the test results of the project. (mvn surefire-report:report)
+- SpotBugs, henerates a source code report (mvn site)

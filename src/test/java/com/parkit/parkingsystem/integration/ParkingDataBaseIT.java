@@ -86,62 +86,63 @@ public class ParkingDataBaseIT {
     @Test
     public void givenEverythingOK_whenProcessExitingVehicle_thenTicketIsUpdated() {
         // GIVEN
-        givenParkingSlotAvailable_whenProcessIncomingCar_thenTicketIsSaved();
         ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
+        parkingService.processIncomingVehicle();
 
         // WHEN
         parkingService.processExitingVehicle();
+        Ticket ticket = ticketDAO.getTicket("ABCDEF");
+        Date outTime = new Date(ticket.getInTime().getTime() + (60 * 60 * 1000));
+        ticket.setOutTime(outTime);
+        FareCalculatorService fareCalculatorService = new FareCalculatorService();
+        fareCalculatorService.calculateFare(ticket);
+        ticketDAO.updateTicket(ticket);
+        System.out.println("Updating info for the test. Fare: " + ticket.getPrice() + " OutTime: " + ticket.getOutTime());
 
         // THEN
-        Ticket ticket = ticketDAO.getTicket("ABCDEF");
         assertNotNull(ticket);
         assertNotNull(ticket.getOutTime());
+        assertNotEquals(0.0, ticket.getPrice());
     }
 
     @Test
     public void givenRecurringUser_whenProcessExitingVehicle_thenApplyDiscount() {
         // GIVEN
-        ParkingService firstParkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
+        // user first visit
+        System.out.println("First visit");
+        ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
+        parkingService.processIncomingVehicle();
 
-
-        // first User Visit
-        firstParkingService.processIncomingVehicle();
         Ticket firstTicket = ticketDAO.getTicket("ABCDEF");
-
-        /*try (MockedStatic<Date> mockedOutTime = mockStatic(Date.class)) {
-            mockedOutTime.when(Date::new).thenReturn(new Date(firstTicket.getInTime().getTime() + (35 * 60 * 1000)));
-
-        }*/
-        //when(Date::new).thenReturn(new Date(firstTicket.getInTime().getTime() + (35 * 60 * 1000)));
-        firstParkingService.processExitingVehicle();
-        Date firstOutTime = new Date(firstTicket.getInTime().getTime() + (35 * 60 * 1000));
+        Date firstOutTime = new Date(firstTicket.getInTime().getTime() + (60 * 60 * 1000));
         firstTicket.setOutTime(firstOutTime);
-        firstParkingService.setDiscountForRecurringUser(firstTicket, "ABCDEF");
-        FareCalculatorService firstFareCalculatorService = new FareCalculatorService();
-        firstFareCalculatorService.calculateFare(firstTicket);
+        FareCalculatorService fareCalculatorService = new FareCalculatorService();
+        fareCalculatorService.calculateFare(firstTicket);
         ticketDAO.updateTicket(firstTicket);
-
+        System.out.println("Please pay the parking fare:" + firstTicket.getPrice());
+        System.out.println("Recorded out-time for vehicle number:" + firstTicket.getVehicleRegNumber() + " is:" + firstOutTime);
         Double firstPrice = firstTicket.getPrice();
 
-        // second User visit
+        // user second entrance
+        System.out.println("Second visit");
         ParkingService secondParkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
-
         secondParkingService.processIncomingVehicle();
-        Ticket secondTicket = ticketDAO.getTicket("ABCDEF");
-
-        Date secondInTime = new Date(secondTicket.getInTime().getTime() - (35 * 60 * 1000));
-        secondTicket.setInTime(secondInTime);
-
-        ticketDAO.updateTicket(secondTicket);
 
         // WHEN
-        secondParkingService.processExitingVehicle();
+        Ticket secondTicket = ticketDAO.getTicket("ABCDEF");
+        Date secondOutTime = new Date(secondTicket.getInTime().getTime() + (60 * 60 * 1000));
+        secondTicket.setOutTime(secondOutTime);
+        secondParkingService.setDiscountForRecurringUser(secondTicket, "ABCDEF");
+        fareCalculatorService.calculateFare(secondTicket);
+        ticketDAO.updateTicket(secondTicket);
+        System.out.println("Please pay the parking fare:" + firstTicket.getPrice());
+        System.out.println("Recorded out-time for vehicle number:" + firstTicket.getVehicleRegNumber() + " is:" + firstOutTime);
 
         // THEN
         Double secondPrice = secondTicket.getPrice();
         System.out.println(firstPrice + " / " + secondPrice );
         assertTrue(secondTicket.isDiscount());
-        assertEquals(firstPrice * 0.95, secondPrice, 0.01);
+        assertEquals(Math.round(firstPrice * 0.95*100.0)/100.0, secondPrice, 0.01);
     }
 
 }

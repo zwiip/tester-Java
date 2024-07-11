@@ -30,8 +30,8 @@ public class FareCalculatorService {
                 default: throw new IllegalArgumentException("Unkown Parking Type");
             }
             if (ticket.isDiscount()) {
-                double price = ticket.getPrice();
-                ticket.setPrice( price * 0.95 );
+                double price = Math.round(ticket.getPrice()*100.0)/100.0;
+                ticket.setPrice( Math.round(price * 0.95*100.0)/100.0 );
             }
         }
     }
